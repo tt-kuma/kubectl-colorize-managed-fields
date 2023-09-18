@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"bytes"
@@ -40,17 +40,6 @@ const (
 var (
 	colorMarkRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
 )
-
-func main() {
-	cmd := NewCmdColorizeManagedFields(genericclioptions.IOStreams{
-		In:     os.Stdin,
-		Out:    os.Stdout,
-		ErrOut: os.Stderr,
-	})
-	if err := cmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
 
 type ColorizeManagedFieldsOptions struct {
 	Namespace string
@@ -159,6 +148,8 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	cj := colorizeJSON(string(j))
 
 	fmt.Println(cj)
+
+	return nil
 }
 
 func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]Color) map[string]Color {
