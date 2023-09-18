@@ -11,10 +11,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
@@ -38,6 +42,62 @@ var (
 )
 
 func main() {
+	cmd := NewCmdColorizeManagedFields(genericclioptions.IOStreams{
+		In:     os.Stdin,
+		Out:    os.Stdout,
+		ErrOut: os.Stderr,
+	})
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+type ColorizeManagedFieldsOptions struct {
+	Namespace string
+
+	genericiooptions.IOStreams
+}
+
+func NewColorizeManagedFieldsOptions(streams genericiooptions.IOStreams) *ColorizeManagedFieldsOptions {
+	return &ColorizeManagedFieldsOptions{
+		IOStreams: streams,
+	}
+}
+
+func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Command {
+	o := NewColorizeManagedFieldsOptions(streams)
+
+	defaultConfigFlags := genericclioptions.NewConfigFlags(true)
+	matchVersionKubeConfigFlags := cmdutil.NewMatchVersionFlags(defaultConfigFlags)
+	f := cmdutil.NewFactory(matchVersionKubeConfigFlags)
+
+	cmd := &cobra.Command{
+		Use:     "kubectl colorize-managed-fields",
+		Short:   "",
+		Long:    "",
+		Example: "",
+		Run: func(cmd *cobra.Command, args []string) {
+			cmdutil.CheckErr(o.Complete(f, args))
+			cmdutil.CheckErr(o.Validate())
+			cmdutil.CheckErr(o.Run(f, args))
+		},
+	}
+
+	flags := cmd.Flags()
+	matchVersionKubeConfigFlags.AddFlags(flags)
+
+	return cmd
+}
+
+func (o *ColorizeManagedFieldsOptions) Complete(f cmdutil.Factory, args []string) error {
+	return nil
+}
+
+func (o *ColorizeManagedFieldsOptions) Validate() error {
+	return nil
+}
+
+func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) error {
 	kubeconfig := "$HOME/.kube/config"
 	config, err := clientcmd.BuildConfigFromFlags("", os.ExpandEnv(kubeconfig))
 	if err != nil {
