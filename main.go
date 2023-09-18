@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +18,25 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
-var listKeys map[string][]fieldpath.PathElement
+type Color int
+
+const (
+	Reset       = Color(0)
+	Black Color = iota + 30
+	Red
+	Green
+	Yellow
+	Blue
+	Magenta
+	Cyan
+	White
+)
+
+var (
+	colors      map[string]Color
+	listKeys    map[string][]fieldpath.PathElement
+	colorRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
+)
 
 func main() {
 	kubeconfig := "$HOME/.kube/config"
@@ -44,8 +63,9 @@ func main() {
 
 	managersForFields := map[string][]string{}
 	listKeys = map[string][]fieldpath.PathElement{}
+	managerColors := map[string]Color{}
 	fsAll := &fieldpath.Set{}
-	for _, mf := range resource.GetManagedFields() {
+	for i, mf := range resource.GetManagedFields() {
 		fieldset := &fieldpath.Set{}
 		fs := &fieldpath.Set{}
 		err = fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw))
@@ -62,10 +82,18 @@ func main() {
 			}
 			managersForFields[path] = []string{mf.Manager}
 		})
+		managerColors[mf.Manager] = Green + Color(i)
+	}
+
+	colors = map[string]Color{}
+	for k, v := range managersForFields {
+		if len(v) > 1 {
+			colors[k] = Red
+		}
+		colors[k] = managerColors[v[0]]
 	}
 
 	fsAll.Iterate(func(p fieldpath.Path) {
-		fmt.Println(p.String())
 		lastPathElement := p[len(p)-1]
 		if lastPathElement.FieldName != nil || len(p) < 2 {
 			return
@@ -86,9 +114,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	c := strings.ReplaceAll(string(j), "\"$(RED)", "\033[31m\"")
-	c = strings.ReplaceAll(c, "\"$(RESET)", "\033[00m\"")
+	c := string(j)
+	c = colorRegexp.ReplaceAllString(c, "\033[${2}m\"${1}\"")
 	c = strings.ReplaceAll(c, " }", "\033[00m }")
 	fmt.Println(c)
 
@@ -103,26 +130,28 @@ func colorizeFields(fields map[string]any) map[string]any {
 
 func recursiveColorize(fields, colorized map[string]any, prefix string) error {
 	for key, value := range fields {
+		col := Reset
+		if c, ok := colors[fmt.Sprintf("%s.%s", prefix, key)]; ok {
+			col = c
+		}
+		keyWithColor := fmt.Sprintf("%s__%d__", key, col)
+
 		switch typedValue := value.(type) {
 		case map[string]any:
-			keyWithColor := fmt.Sprintf("$(RESET)%s", key)
 			child := map[string]any{}
 			colorized[keyWithColor] = child
 			recursiveColorize(typedValue, child, fmt.Sprintf("%s.%s", prefix, key))
 		case []any:
 			if len(typedValue) == 0 {
-				keyWithColor := fmt.Sprintf("$(RED)%s", key)
 				colorized[keyWithColor] = typedValue
 				break
 			}
 
 			if _, ok := typedValue[0].(map[string]any); !ok {
-				keyWithColor := fmt.Sprintf("$(RED)%s", key)
 				colorized[keyWithColor] = typedValue
 				break
 			}
 
-			keyWithColor := fmt.Sprintf("$(RESET)%s", key)
 			colorized[keyWithColor] = []map[string]any{}
 			lk := listKeys[fmt.Sprintf("%s.%s", prefix, key)]
 			for _, tv := range typedValue {
@@ -137,7 +166,6 @@ func recursiveColorize(fields, colorized map[string]any, prefix string) error {
 				recursiveColorize(tv.(map[string]any), child, fmt.Sprintf("%s.%s%s", prefix, key, pe.String()))
 			}
 		default:
-			keyWithColor := fmt.Sprintf("$(RED)%s", key)
 			colorized[keyWithColor] = typedValue
 		}
 	}
@@ -158,7 +186,6 @@ func matchPathElement(pe fieldpath.PathElement, value map[string]any) bool {
 
 func findFirst[T any](s []T, f func(T) bool) (T, error) {
 	for _, e := range s {
-		fmt.Printf("%#v\n", e)
 		if f(e) {
 			return e, nil
 		}
