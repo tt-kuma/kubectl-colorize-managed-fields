@@ -22,7 +22,10 @@ type Color int
 
 const (
 	Reset Color = 0
-	Red   Color = iota + 31
+)
+
+const (
+	Red Color = iota + 31
 	Green
 	Yellow
 	Blue
@@ -68,14 +71,13 @@ func main() {
 
 		fs.Leaves().Iterate(func(p fieldpath.Path) {
 			ps := p.String()
-			if managers, ok := fieldManagers[ps]; ok {
-				fieldManagers[ps] = append(managers, mf.Manager)
-				return
+			if _, ok := fieldManagers[ps]; !ok {
+				fieldManagers[ps] = []string{}
 			}
-			fieldManagers[ps] = []string{mf.Manager}
+			fieldManagers[ps] = append(fieldManagers[ps], mf.Manager)
 		})
 
-		managerColors[mf.Manager] = Red + Color(i)
+		managerColors[mf.Manager] = Green + Color(i)
 
 		allFields = allFields.Union(fs)
 	}
@@ -106,7 +108,9 @@ func assignColorToFields(fieldManagers map[string][]string, managerColors map[st
 			continue
 		}
 		if len(v) > 1 {
+
 			fieldColors[k] = Red
+			continue
 		}
 		fieldColors[k] = managerColors[v[0]]
 	}
