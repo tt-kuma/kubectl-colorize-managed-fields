@@ -126,11 +126,11 @@ func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
 			return
 		}
 
-		prefix := p[0 : len(p)-1]
-		if _, ok := kpe[prefix.String()]; !ok {
-			kpe[prefix.String()] = []fieldpath.PathElement{}
+		prefix := p[0 : len(p)-1].String()
+		if _, ok := kpe[prefix]; !ok {
+			kpe[prefix] = []fieldpath.PathElement{}
 		}
-		kpe[prefix.String()] = append(kpe[prefix.String()], last)
+		kpe[prefix] = append(kpe[prefix], last)
 	})
 
 	return kpe
