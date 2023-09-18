@@ -2,22 +2,17 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
@@ -42,7 +37,8 @@ var (
 )
 
 type ColorizeManagedFieldsOptions struct {
-	Namespace string
+	ExplicitNamespace bool
+	Namespace         string
 
 	genericiooptions.IOStreams
 }
@@ -67,7 +63,6 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 		Example: "",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmdutil.CheckErr(o.Complete(f, args))
-			cmdutil.CheckErr(o.Validate())
 			cmdutil.CheckErr(o.Run(f, args))
 		},
 	}
@@ -79,43 +74,43 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 }
 
 func (o *ColorizeManagedFieldsOptions) Complete(f cmdutil.Factory, args []string) error {
-	return nil
-}
+	var err error
+	o.Namespace, o.ExplicitNamespace, err = f.ToRawKubeConfigLoader().Namespace()
+	if err != nil {
+		return err
+	}
 
-func (o *ColorizeManagedFieldsOptions) Validate() error {
 	return nil
 }
 
 func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) error {
-	kubeconfig := "$HOME/.kube/config"
-	config, err := clientcmd.BuildConfigFromFlags("", os.ExpandEnv(kubeconfig))
+	r := f.NewBuilder().
+		Unstructured().
+		NamespaceParam(o.Namespace).DefaultNamespace().
+		ResourceTypeOrNameArgs(true, args...).
+		ContinueOnError().
+		Latest().
+		Flatten().
+		Do()
+
+	allErrs := []error{}
+	infos, err := r.Infos()
 	if err != nil {
-		fmt.Printf("Error building kubeconfig: %v\n", err)
-		log.Fatal(err)
+		allErrs = append(allErrs, err)
 	}
-	client := dynamic.NewForConfigOrDie(config)
-
-	resource, err := client.Resource(
-		schema.GroupVersionResource{
-			Group:    "apps",
-			Version:  "v1",
-			Resource: "deployments",
-		},
-	).
-		Namespace("default").
-		Get(context.Background(), "nginx-deployment", metav1.GetOptions{})
-
-	if err != nil {
-		log.Fatal(err)
+	if len(infos) > 1 {
+		allErrs = append(allErrs, errors.New("support only single resource"))
+		return utilerrors.NewAggregate(allErrs)
 	}
 
+	resource := infos[0].Object.DeepCopyObject().(*unstructured.Unstructured)
 	fieldManagers := map[string][]string{}
 	managerColors := make(map[string]Color, len(resource.GetManagedFields()))
 	allFields := &fieldpath.Set{}
 	for i, mf := range resource.GetManagedFields() {
 		fs := &fieldpath.Set{}
 		if err := fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
-			log.Fatal(err)
+			allErrs = append(allErrs, err)
 		}
 
 		fs.Leaves().Iterate(func(p fieldpath.Path) {
@@ -137,19 +132,18 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	resource.SetManagedFields(nil)
 	marked, err := markWithColor(resource.Object, "", fieldColors, kpe)
 	if err != nil {
-		log.Fatal(err)
+		allErrs = append(allErrs, err)
 	}
 
 	j, err := json.MarshalIndent(marked, "", "  ")
 	if err != nil {
-		log.Fatal(err)
+		allErrs = append(allErrs, err)
 	}
 
 	cj := colorizeJSON(string(j))
+	fmt.Fprintln(o.IOStreams.Out, cj)
 
-	fmt.Println(cj)
-
-	return nil
+	return utilerrors.NewAggregate(allErrs)
 }
 
 func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]Color) map[string]Color {
