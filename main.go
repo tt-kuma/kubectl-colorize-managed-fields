@@ -21,21 +21,17 @@ import (
 type Color int
 
 const (
-	Reset       = Color(0)
-	Black Color = iota + 30
-	Red
+	Reset Color = 0
+	Red   Color = iota + 31
 	Green
 	Yellow
 	Blue
 	Magenta
 	Cyan
-	White
 )
 
 var (
-	colors      map[string]Color
-	listKeys    map[string][]fieldpath.PathElement
-	colorRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
+	colorMarkRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
 )
 
 func main() {
@@ -61,119 +57,135 @@ func main() {
 		log.Fatal(err)
 	}
 
-	managersForFields := map[string][]string{}
-	listKeys = map[string][]fieldpath.PathElement{}
-	managerColors := map[string]Color{}
-	fsAll := &fieldpath.Set{}
+	fieldManagers := map[string][]string{}
+	managerColors := make(map[string]Color, len(resource.GetManagedFields()))
+	allFields := &fieldpath.Set{}
 	for i, mf := range resource.GetManagedFields() {
-		fieldset := &fieldpath.Set{}
 		fs := &fieldpath.Set{}
-		err = fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw))
-		if err != nil {
+		if err := fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
 			log.Fatal(err)
 		}
 
-		fieldset = fieldset.Union(fs)
-		fsAll = fsAll.Union(fs)
-		fieldset.Leaves().Iterate(func(p fieldpath.Path) {
-			path := p.String()
-			if managers, ok := managersForFields[path]; ok {
-				managersForFields[path] = append(managers, mf.Manager)
+		fs.Leaves().Iterate(func(p fieldpath.Path) {
+			ps := p.String()
+			if managers, ok := fieldManagers[ps]; ok {
+				fieldManagers[ps] = append(managers, mf.Manager)
+				return
 			}
-			managersForFields[path] = []string{mf.Manager}
+			fieldManagers[ps] = []string{mf.Manager}
 		})
-		managerColors[mf.Manager] = Green + Color(i)
+
+		managerColors[mf.Manager] = Red + Color(i)
+
+		allFields = allFields.Union(fs)
 	}
 
-	colors = map[string]Color{}
-	for k, v := range managersForFields {
-		if len(v) > 1 {
-			colors[k] = Red
-		}
-		colors[k] = managerColors[v[0]]
-	}
-
-	fsAll.Iterate(func(p fieldpath.Path) {
-		lastPathElement := p[len(p)-1]
-		if lastPathElement.FieldName != nil || len(p) < 2 {
-			return
-		}
-
-		pe := p[0 : len(p)-1]
-
-		if _, ok := listKeys[pe.String()]; !ok {
-			listKeys[pe.String()] = []fieldpath.PathElement{}
-		}
-		listKeys[pe.String()] = append(listKeys[pe.String()], lastPathElement)
-	})
+	fieldColors := assignColorToFields(fieldManagers, managerColors)
+	kpe := getKeyPathElements(*allFields)
 
 	resource.SetManagedFields(nil)
-	colorized := colorizeFields(resource.Object)
-
-	j, err := json.MarshalIndent(colorized, "", "  ")
+	marked, err := markWithColor(resource.Object, "", fieldColors, kpe)
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := string(j)
-	c = colorRegexp.ReplaceAllString(c, "\033[${2}m\"${1}\"")
-	c = strings.ReplaceAll(c, " }", "\033[00m }")
-	fmt.Println(c)
 
+	j, err := json.MarshalIndent(marked, "", "  ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cj := colorizeJSON(string(j))
+
+	fmt.Println(cj)
 }
 
-func colorizeFields(fields map[string]any) map[string]any {
-	colorized := map[string]any{}
-	recursiveColorize(fields, colorized, "")
-
-	return colorized
-}
-
-func recursiveColorize(fields, colorized map[string]any, prefix string) error {
-	for key, value := range fields {
-		col := Reset
-		if c, ok := colors[fmt.Sprintf("%s.%s", prefix, key)]; ok {
-			col = c
+func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]Color) map[string]Color {
+	fieldColors := map[string]Color{}
+	for k, v := range fieldManagers {
+		if len(v) == 0 {
+			continue
 		}
-		keyWithColor := fmt.Sprintf("%s__%d__", key, col)
+		if len(v) > 1 {
+			fieldColors[k] = Red
+		}
+		fieldColors[k] = managerColors[v[0]]
+	}
+
+	return fieldColors
+}
+
+func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
+	kpe := map[string][]fieldpath.PathElement{}
+	fs.Iterate(func(p fieldpath.Path) {
+		last := p[len(p)-1]
+		if last.FieldName != nil || len(p) < 2 {
+			return
+		}
+
+		prefix := p[0 : len(p)-1]
+		if _, ok := kpe[prefix.String()]; !ok {
+			kpe[prefix.String()] = []fieldpath.PathElement{}
+		}
+		kpe[prefix.String()] = append(kpe[prefix.String()], last)
+	})
+
+	return kpe
+}
+
+func markWithColor(obj map[string]any, pathPrefix string, colors map[string]Color, kpe map[string][]fieldpath.PathElement) (map[string]any, error) {
+	marked := map[string]any{}
+	for key, value := range obj {
+		markedKey := markKeyWithColor(pathPrefix, key, colors)
+		fieldPath := fmt.Sprintf("%s.%s", pathPrefix, key)
 
 		switch typedValue := value.(type) {
 		case map[string]any:
-			child := map[string]any{}
-			colorized[keyWithColor] = child
-			recursiveColorize(typedValue, child, fmt.Sprintf("%s.%s", prefix, key))
+			markedChild, err := markWithColor(typedValue, fieldPath, colors, kpe)
+			if err != nil {
+				return nil, err
+			}
+			marked[markedKey] = markedChild
 		case []any:
 			if len(typedValue) == 0 {
-				colorized[keyWithColor] = typedValue
+				marked[markedKey] = typedValue
 				break
 			}
 
 			if _, ok := typedValue[0].(map[string]any); !ok {
-				colorized[keyWithColor] = typedValue
+				marked[markedKey] = typedValue
 				break
 			}
 
-			colorized[keyWithColor] = []map[string]any{}
-			lk := listKeys[fmt.Sprintf("%s.%s", prefix, key)]
+			marked[markedKey] = []map[string]any{}
+			lk := kpe[fieldPath]
 			for _, tv := range typedValue {
-				child := map[string]any{}
-				colorized[keyWithColor] = append(colorized[keyWithColor].([]map[string]any), child)
-
-				pe, err := findFirst(lk, func(pe fieldpath.PathElement) bool { return matchPathElement(pe, tv.(map[string]any)) })
+				prefix, err := findFirst(lk, func(prefix fieldpath.PathElement) bool { return matchPathElement(prefix, tv.(map[string]any)) })
 				if err != nil {
-					return err
+					return nil, fmt.Errorf("failed to get matched path element: %w", err)
 				}
-
-				recursiveColorize(tv.(map[string]any), child, fmt.Sprintf("%s.%s%s", prefix, key, pe.String()))
+				markedChild, err := markWithColor(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()), colors, kpe)
+				if err != nil {
+					return nil, err
+				}
+				marked[markedKey] = append(marked[markedKey].([]map[string]any), markedChild)
 			}
 		default:
-			colorized[keyWithColor] = typedValue
+			marked[markedKey] = typedValue
 		}
 	}
-	return nil
+	return marked, nil
 }
 
-func matchPathElement(pe fieldpath.PathElement, value map[string]any) bool {
-	for _, k := range *pe.Key {
+func markKeyWithColor(pathPrefix, key string, colors map[string]Color) string {
+	color := Reset
+	if c, ok := colors[fmt.Sprintf("%s.%s", pathPrefix, key)]; ok {
+		color = c
+	}
+	return fmt.Sprintf("%s__%d__", key, color)
+}
+
+func matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
+	for _, k := range *prefix.Key {
 		if k.Value.IsString() && value[k.Name] != k.Value.AsString() {
 			return false
 		}
@@ -182,6 +194,14 @@ func matchPathElement(pe fieldpath.PathElement, value map[string]any) bool {
 		}
 	}
 	return true
+}
+
+func colorizeJSON(j string) string {
+	colorized := j
+	colorized = colorMarkRegexp.ReplaceAllString(colorized, "\033[${2}m\"${1}\"")
+	colorized = strings.ReplaceAll(colorized, " }", "\033[00m }")
+
+	return colorized
 }
 
 func findFirst[T any](s []T, f func(T) bool) (T, error) {
