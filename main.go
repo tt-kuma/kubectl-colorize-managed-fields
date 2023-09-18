@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -43,9 +44,8 @@ func main() {
 
 	managersForFields := map[string][]string{}
 	listKeys = map[string][]fieldpath.PathElement{}
-	mfs := resource.GetManagedFields()
 	fsAll := &fieldpath.Set{}
-	for _, mf := range mfs {
+	for _, mf := range resource.GetManagedFields() {
 		fieldset := &fieldpath.Set{}
 		fs := &fieldpath.Set{}
 		err = fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw))
@@ -101,7 +101,7 @@ func colorizeFields(fields map[string]any) map[string]any {
 	return colorized
 }
 
-func recursiveColorize(fields, colorized map[string]any, prefix string) {
+func recursiveColorize(fields, colorized map[string]any, prefix string) error {
 	for key, value := range fields {
 		switch typedValue := value.(type) {
 		case map[string]any:
@@ -110,52 +110,60 @@ func recursiveColorize(fields, colorized map[string]any, prefix string) {
 			colorized[keyWithColor] = child
 			recursiveColorize(typedValue, child, fmt.Sprintf("%s.%s", prefix, key))
 		case []any:
-			_, ok := typedValue[0].(map[string]any)
-			if !ok {
-				fmt.Printf("%s\n", key)
+			if len(typedValue) == 0 {
+				keyWithColor := fmt.Sprintf("$(RED)%s", key)
+				colorized[keyWithColor] = typedValue
+				break
+			}
+
+			if _, ok := typedValue[0].(map[string]any); !ok {
 				keyWithColor := fmt.Sprintf("$(RED)%s", key)
 				colorized[keyWithColor] = typedValue
 				break
 			}
 
 			keyWithColor := fmt.Sprintf("$(RESET)%s", key)
-			var children []map[string]any
-			colorized[keyWithColor] = children
-
+			colorized[keyWithColor] = []map[string]any{}
 			lk := listKeys[fmt.Sprintf("%s.%s", prefix, key)]
 			for _, tv := range typedValue {
 				child := map[string]any{}
 				colorized[keyWithColor] = append(colorized[keyWithColor].([]map[string]any), child)
 
-				var pathElement fieldpath.PathElement
-				var found bool
-				for _, pe := range lk {
-					found = true
-					fmt.Printf("%#v\n", pe)
-					for _, k := range *pe.Key {
-						if k.Value.IsString() && tv.(map[string]any)[k.Name] != k.Value.AsString() {
-							found = false
-							break
-						}
-						if k.Value.IsInt() && tv.(map[string]any)[k.Name] != k.Value.AsInt() {
-							found = false
-							break
-						}
-					}
-					if found {
-						pathElement = pe
-						break
-					}
-				}
-				if !found {
-					log.Fatalln("pe not found")
+				pe, err := findFirst(lk, func(pe fieldpath.PathElement) bool { return matchPathElement(pe, tv.(map[string]any)) })
+				if err != nil {
+					return err
 				}
 
-				recursiveColorize(tv.(map[string]any), child, fmt.Sprintf("%s.%s%s", prefix, key, pathElement.String()))
+				recursiveColorize(tv.(map[string]any), child, fmt.Sprintf("%s.%s%s", prefix, key, pe.String()))
 			}
 		default:
 			keyWithColor := fmt.Sprintf("$(RED)%s", key)
 			colorized[keyWithColor] = typedValue
 		}
 	}
+	return nil
+}
+
+func matchPathElement(pe fieldpath.PathElement, value map[string]any) bool {
+	for _, k := range *pe.Key {
+		if k.Value.IsString() && value[k.Name] != k.Value.AsString() {
+			return false
+		}
+		if k.Value.IsInt() && value[k.Name] != k.Value.AsInt() {
+			return false
+		}
+	}
+	return true
+}
+
+func findFirst[T any](s []T, f func(T) bool) (T, error) {
+	for _, e := range s {
+		fmt.Printf("%#v\n", e)
+		if f(e) {
+			return e, nil
+		}
+	}
+
+	var zero T
+	return zero, errors.New("not found")
 }
