@@ -11,6 +11,11 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
+type Marker struct {
+	fieldColors     map[string]Color
+	keyPathElements map[string][]fieldpath.PathElement
+}
+
 type Color int
 
 const (
@@ -56,8 +61,12 @@ func colorize(resource *unstructured.Unstructured) (*unstructured.Unstructured, 
 	fieldColors := assignColorToFields(fieldManagers, managerColors)
 	kpe := getKeyPathElements(*allFields)
 
+	marker := Marker{
+		fieldColors:     fieldColors,
+		keyPathElements: kpe,
+	}
 	resource.SetManagedFields(nil)
-	marked, err := markWithColor(resource.Object, "", fieldColors, kpe)
+	marked, err := marker.markWithColor(resource.Object, "")
 	if err != nil {
 		return nil, err
 	}
@@ -102,15 +111,15 @@ func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
 	return kpe
 }
 
-func markWithColor(obj map[string]any, pathPrefix string, colors map[string]Color, kpe map[string][]fieldpath.PathElement) (map[string]any, error) {
+func (m *Marker) markWithColor(obj map[string]any, pathPrefix string) (map[string]any, error) {
 	marked := map[string]any{}
 	for key, value := range obj {
-		markedKey := markKeyWithColor(pathPrefix, key, colors)
+		markedKey := m.markKeyWithColor(pathPrefix, key)
 		fieldPath := fmt.Sprintf("%s.%s", pathPrefix, key)
 
 		switch typedValue := value.(type) {
 		case map[string]any:
-			markedChild, err := markWithColor(typedValue, fieldPath, colors, kpe)
+			markedChild, err := m.markWithColor(typedValue, fieldPath)
 			if err != nil {
 				return nil, err
 			}
@@ -127,13 +136,13 @@ func markWithColor(obj map[string]any, pathPrefix string, colors map[string]Colo
 			}
 
 			marked[markedKey] = []map[string]any{}
-			lk := kpe[fieldPath]
+			lk := m.keyPathElements[fieldPath]
 			for _, tv := range typedValue {
 				prefix, err := findFirst(lk, func(prefix fieldpath.PathElement) bool { return matchPathElement(prefix, tv.(map[string]any)) })
 				if err != nil {
 					return nil, fmt.Errorf("failed to get matched path element: %w", err)
 				}
-				markedChild, err := markWithColor(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()), colors, kpe)
+				markedChild, err := m.markWithColor(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()))
 				if err != nil {
 					return nil, err
 				}
@@ -146,9 +155,9 @@ func markWithColor(obj map[string]any, pathPrefix string, colors map[string]Colo
 	return marked, nil
 }
 
-func markKeyWithColor(pathPrefix, key string, colors map[string]Color) string {
+func (m *Marker) markKeyWithColor(pathPrefix, key string) string {
 	color := Reset
-	if c, ok := colors[fmt.Sprintf("%s.%s", pathPrefix, key)]; ok {
+	if c, ok := m.fieldColors[fmt.Sprintf("%s.%s", pathPrefix, key)]; ok {
 		color = c
 	}
 	return fmt.Sprintf("%s__%d__", key, color)
