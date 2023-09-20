@@ -45,8 +45,7 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 	}
 
 	flags := cmd.Flags()
-	matchVersionKubeConfigFlags.AddFlags(flags)
-
+	defaultConfigFlags.AddFlags(flags)
 	return cmd
 }
 
