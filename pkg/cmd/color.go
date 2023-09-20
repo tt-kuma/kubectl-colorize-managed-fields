@@ -184,7 +184,10 @@ func matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
 func colorizeJSON(j string) string {
 	colorized := j
 	colorized = colorMarkRegexp.ReplaceAllString(colorized, "\033[${2}m\"${1}\"")
+	colorized = strings.ReplaceAll(colorized, " {", "\033[00m {")
 	colorized = strings.ReplaceAll(colorized, " }", "\033[00m }")
+	// colorized = strings.ReplaceAll(colorized, " [", "\033[00m [")
+	// colorized = strings.ReplaceAll(colorized, " ]", "\033[00m ]")
 
 	return colorized
 }
