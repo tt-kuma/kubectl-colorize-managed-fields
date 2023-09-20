@@ -138,10 +138,15 @@ func (m *Marker) markWithColor(obj map[string]any, pathPrefix string) (map[strin
 			marked[markedKey] = []map[string]any{}
 			lk := m.keyPathElements[fieldPath]
 			for _, tv := range typedValue {
-				prefix, err := findFirst(lk, func(prefix fieldpath.PathElement) bool { return matchPathElement(prefix, tv.(map[string]any)) })
-				if err != nil {
-					return nil, fmt.Errorf("failed to get matched path element: %w", err)
+				var prefix fieldpath.PathElement
+				if len(lk) != 0 {
+					var err error
+					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool { return matchPathElement(prefix, tv.(map[string]any)) })
+					if err != nil {
+						return nil, err
+					}
 				}
+
 				markedChild, err := m.markWithColor(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()))
 				if err != nil {
 					return nil, err
