@@ -82,17 +82,17 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	}
 
 	resource := infos[0].Object.DeepCopyObject().(*unstructured.Unstructured)
-	colorized, err := colorize(resource)
+	marked, err := markWithColor(resource)
 	if err != nil {
 		allErrs = append(allErrs, err)
 	}
 
-	j, err := json.MarshalIndent(colorized.Object, "", "  ")
+	j, err := json.MarshalIndent(marked.Object, "", "  ")
 	if err != nil {
 		allErrs = append(allErrs, err)
 	}
 
-	cj := colorizeJSON(string(j))
+	cj := colorJSON(string(j))
 	fmt.Fprintln(o.IOStreams.Out, cj)
 
 	return utilerrors.NewAggregate(allErrs)

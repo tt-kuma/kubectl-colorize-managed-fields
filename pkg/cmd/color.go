@@ -7,37 +7,31 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/fatih/color"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
-type Marker struct {
-	fieldColors     map[string]Color
-	keyPathElements map[string][]fieldpath.PathElement
-}
-
-type Color int
-
 const (
-	Reset Color = 0
-)
-
-const (
-	Red Color = iota + 31
-	Green
-	Yellow
-	Blue
-	Magenta
-	Cyan
+	escape = "\x1b"
 )
 
 var (
 	colorMarkRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
+	colors          map[color.Attribute]*color.Color
 )
 
-func colorize(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func init() {
+	colors = map[color.Attribute]*color.Color{}
+	colors[color.Reset] = color.New(color.Reset)
+	for i := color.FgGreen; i < color.FgWhite; i++ {
+		colors[i] = color.New(i)
+	}
+}
+
+func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	fieldManagers := map[string][]string{}
-	managerColors := make(map[string]Color, len(resource.GetManagedFields()))
+	managerColors := make(map[string]color.Attribute, len(resource.GetManagedFields()))
 	allFields := &fieldpath.Set{}
 	for i, mf := range resource.GetManagedFields() {
 		fs := &fieldpath.Set{}
@@ -53,7 +47,7 @@ func colorize(resource *unstructured.Unstructured) (*unstructured.Unstructured, 
 			fieldManagers[ps] = append(fieldManagers[ps], mf.Manager)
 		})
 
-		managerColors[mf.Manager] = Green + Color(i)
+		managerColors[mf.Manager] = color.FgGreen + color.Attribute(i)
 
 		allFields = allFields.Union(fs)
 	}
@@ -61,12 +55,12 @@ func colorize(resource *unstructured.Unstructured) (*unstructured.Unstructured, 
 	fieldColors := assignColorToFields(fieldManagers, managerColors)
 	kpe := getKeyPathElements(*allFields)
 
-	marker := Marker{
+	marker := ColorMarker{
 		fieldColors:     fieldColors,
 		keyPathElements: kpe,
 	}
 	resource.SetManagedFields(nil)
-	marked, err := marker.markWithColor(resource.Object, "")
+	marked, err := marker.mark(resource.Object, "")
 	if err != nil {
 		return nil, err
 	}
@@ -76,15 +70,15 @@ func colorize(resource *unstructured.Unstructured) (*unstructured.Unstructured, 
 	}, nil
 }
 
-func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]Color) map[string]Color {
-	fieldColors := map[string]Color{}
+func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]color.Attribute) map[string]color.Attribute {
+	fieldColors := map[string]color.Attribute{}
 	for k, v := range fieldManagers {
 		if len(v) == 0 {
 			continue
 		}
 		if len(v) > 1 {
 
-			fieldColors[k] = Red
+			fieldColors[k] = color.FgRed
 			continue
 		}
 		fieldColors[k] = managerColors[v[0]]
@@ -111,15 +105,35 @@ func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
 	return kpe
 }
 
-func (m *Marker) markWithColor(obj map[string]any, pathPrefix string) (map[string]any, error) {
+func colorJSON(j string) string {
+	colorized := j
+	colorized = colorMarkRegexp.ReplaceAllString(colorized, fmt.Sprintf("%s[${2}m\"${1}\"%s[%dm", escape, escape, color.Reset))
+	colorized = strings.ReplaceAll(colorized, " {", colorString(" {", color.Reset))
+	colorized = strings.ReplaceAll(colorized, " }", colorString(" }", color.Reset))
+	colorized = strings.ReplaceAll(colorized, " [", colorString(" [", color.Reset))
+	colorized = strings.ReplaceAll(colorized, " ]", colorString(" ]", color.Reset))
+
+	return colorized
+}
+
+func colorString(str string, attr color.Attribute) string {
+	return colors[attr].Sprint(str)
+}
+
+type ColorMarker struct {
+	fieldColors     map[string]color.Attribute
+	keyPathElements map[string][]fieldpath.PathElement
+}
+
+func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]any, error) {
 	marked := map[string]any{}
 	for key, value := range obj {
-		markedKey := m.markKeyWithColor(pathPrefix, key)
+		markedKey := m.markKey(pathPrefix, key)
 		fieldPath := fmt.Sprintf("%s.%s", pathPrefix, key)
 
 		switch typedValue := value.(type) {
 		case map[string]any:
-			markedChild, err := m.markWithColor(typedValue, fieldPath)
+			markedChild, err := m.mark(typedValue, fieldPath)
 			if err != nil {
 				return nil, err
 			}
@@ -141,13 +155,13 @@ func (m *Marker) markWithColor(obj map[string]any, pathPrefix string) (map[strin
 				var prefix fieldpath.PathElement
 				if len(lk) != 0 {
 					var err error
-					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool { return matchPathElement(prefix, tv.(map[string]any)) })
+					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool { return m.matchPathElement(prefix, tv.(map[string]any)) })
 					if err != nil {
 						return nil, err
 					}
 				}
 
-				markedChild, err := m.markWithColor(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()))
+				markedChild, err := m.mark(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()))
 				if err != nil {
 					return nil, err
 				}
@@ -160,8 +174,8 @@ func (m *Marker) markWithColor(obj map[string]any, pathPrefix string) (map[strin
 	return marked, nil
 }
 
-func (m *Marker) markKeyWithColor(pathPrefix, key string) string {
-	color := Reset
+func (m *ColorMarker) markKey(pathPrefix, key string) string {
+	color := color.Reset
 	if c, ok := m.fieldColors[fmt.Sprintf("%s.%s", pathPrefix, key)]; ok {
 		color = c
 	}
@@ -169,7 +183,7 @@ func (m *Marker) markKeyWithColor(pathPrefix, key string) string {
 }
 
 // TODO: support other types
-func matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
+func (m *ColorMarker) matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
 	for _, k := range *prefix.Key {
 		if k.Value.IsString() && value[k.Name] != k.Value.AsString() {
 			return false
@@ -179,17 +193,6 @@ func matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
 		}
 	}
 	return true
-}
-
-func colorizeJSON(j string) string {
-	colorized := j
-	colorized = colorMarkRegexp.ReplaceAllString(colorized, "\033[${2}m\"${1}\"")
-	colorized = strings.ReplaceAll(colorized, " {", "\033[00m {")
-	colorized = strings.ReplaceAll(colorized, " }", "\033[00m }")
-	// colorized = strings.ReplaceAll(colorized, " [", "\033[00m [")
-	// colorized = strings.ReplaceAll(colorized, " ]", "\033[00m ]")
-
-	return colorized
 }
 
 func findFirst[T any](s []T, f func(T) bool) (T, error) {

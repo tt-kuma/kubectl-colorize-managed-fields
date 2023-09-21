@@ -3,9 +3,11 @@ module github.com/tt-kuma/kubectl-color-get
 go 1.21
 
 require (
+	github.com/fatih/color v1.15.0
 	github.com/spf13/cobra v1.7.0
 	k8s.io/apimachinery v0.28.2
 	k8s.io/cli-runtime v0.28.2
+	k8s.io/client-go v0.28.2
 	k8s.io/kubectl v0.28.2
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 )
@@ -38,6 +40,8 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
@@ -64,7 +68,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.28.2 // indirect
-	k8s.io/client-go v0.28.2 // indirect
 	k8s.io/component-base v0.28.2 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
