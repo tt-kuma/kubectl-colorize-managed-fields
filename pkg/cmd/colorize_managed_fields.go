@@ -11,6 +11,8 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 type ColorizeManagedFieldsOptions struct {
