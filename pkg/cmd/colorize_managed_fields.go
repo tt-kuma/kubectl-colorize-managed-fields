@@ -88,13 +88,23 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 		Flatten().
 		Do()
 
+	if err := r.Err(); err != nil {
+		return err
+	}
+
 	allErrs := []error{}
 	infos, err := r.Infos()
 	if err != nil {
 		allErrs = append(allErrs, err)
 	}
+
+	if len(infos) == 0 {
+		fmt.Fprintf(o.ErrOut, "No resources found in %s namespace.\n", o.Namespace)
+		return utilerrors.NewAggregate(allErrs)
+	}
+
 	if len(infos) > 1 {
-		allErrs = append(allErrs, errors.New("support only single resource"))
+		allErrs = append(allErrs, errors.New("support only one resource"))
 		return utilerrors.NewAggregate(allErrs)
 	}
 
