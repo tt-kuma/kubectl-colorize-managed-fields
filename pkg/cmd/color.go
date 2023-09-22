@@ -5,33 +5,33 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 
-	"github.com/fatih/color"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
+type color int
+
 const (
-	escape = "\x1b"
+	conflicted color = 1
+	base       color = 2
+)
+
+const (
+	escape           = "\x1b"
+	xterm256FgPrefix = escape + "[38;5;"
+	reset            = escape + "[0m"
+	markerPrefix     = "__"
+	markerSuffix     = "__"
 )
 
 var (
-	colorMarkRegexp = regexp.MustCompile("\"(.+)__(\\d+)__\"")
-	colors          map[color.Attribute]*color.Color
+	colorMarkRegexp = regexp.MustCompile(fmt.Sprintf("\"(.+)%s(\\d+)%s\"", markerPrefix, markerSuffix))
 )
-
-func init() {
-	colors = map[color.Attribute]*color.Color{}
-	colors[color.Reset] = color.New(color.Reset)
-	for i := color.FgGreen; i < color.FgWhite; i++ {
-		colors[i] = color.New(i)
-	}
-}
 
 func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	fieldManagers := map[string][]string{}
-	managerColors := make(map[string]color.Attribute, len(resource.GetManagedFields()))
+	managerColors := make(map[string]color, len(resource.GetManagedFields()))
 	allFields := &fieldpath.Set{}
 	for i, mf := range resource.GetManagedFields() {
 		fs := &fieldpath.Set{}
@@ -47,7 +47,7 @@ func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructu
 			fieldManagers[ps] = append(fieldManagers[ps], mf.Manager)
 		})
 
-		managerColors[mf.Manager] = color.FgGreen + color.Attribute(i)
+		managerColors[mf.Manager] = base + color(i)
 
 		allFields = allFields.Union(fs)
 	}
@@ -70,15 +70,15 @@ func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructu
 	}, nil
 }
 
-func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]color.Attribute) map[string]color.Attribute {
-	fieldColors := map[string]color.Attribute{}
+func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]color) map[string]color {
+	fieldColors := map[string]color{}
 	for k, v := range fieldManagers {
 		if len(v) == 0 {
 			continue
 		}
 		if len(v) > 1 {
 
-			fieldColors[k] = color.FgRed
+			fieldColors[k] = conflicted
 			continue
 		}
 		fieldColors[k] = managerColors[v[0]]
@@ -107,21 +107,13 @@ func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
 
 func colorJSON(j string) string {
 	colorized := j
-	colorized = colorMarkRegexp.ReplaceAllString(colorized, fmt.Sprintf("%s[${2}m\"${1}\"%s[%dm", escape, escape, color.Reset))
-	colorized = strings.ReplaceAll(colorized, " {", colorString(" {", color.Reset))
-	colorized = strings.ReplaceAll(colorized, " }", colorString(" }", color.Reset))
-	colorized = strings.ReplaceAll(colorized, " [", colorString(" [", color.Reset))
-	colorized = strings.ReplaceAll(colorized, " ]", colorString(" ]", color.Reset))
+	colorized = colorMarkRegexp.ReplaceAllString(colorized, fmt.Sprintf("%s${2}m\"${1}\"%s", xterm256FgPrefix, reset))
 
 	return colorized
 }
 
-func colorString(str string, attr color.Attribute) string {
-	return colors[attr].Sprint(str)
-}
-
 type ColorMarker struct {
-	fieldColors     map[string]color.Attribute
+	fieldColors     map[string]color
 	keyPathElements map[string][]fieldpath.PathElement
 }
 
@@ -155,7 +147,9 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 				var prefix fieldpath.PathElement
 				if len(lk) != 0 {
 					var err error
-					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool { return m.matchPathElement(prefix, tv.(map[string]any)) })
+					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool {
+						return m.matchPathElement(prefix, tv.(map[string]any))
+					})
 					if err != nil {
 						return nil, err
 					}
@@ -175,11 +169,10 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 }
 
 func (m *ColorMarker) markKey(pathPrefix, key string) string {
-	color := color.Reset
 	if c, ok := m.fieldColors[fmt.Sprintf("%s.%s", pathPrefix, key)]; ok {
-		color = c
+		return fmt.Sprintf("%s%s%d%s", key, markerPrefix, c, markerSuffix)
 	}
-	return fmt.Sprintf("%s__%d__", key, color)
+	return key
 }
 
 // TODO: support other types
