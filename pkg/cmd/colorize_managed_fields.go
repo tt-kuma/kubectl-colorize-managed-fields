@@ -11,8 +11,25 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/util/i18n"
+	"k8s.io/kubectl/pkg/util/templates"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+)
+
+var (
+	colorizeLong = templates.LongDesc(i18n.T(`
+		Display one resource with colorized fields based on managed fields.
+
+		Fields managed by a single manager are colorized uniquely to distinguish each
+		manager. Fields with more than two managers are uniformly colorized by predefined
+		conflicted color, regardless of the combination of managers.
+		Currently, only one resource is supported. If you specify more than two resources,
+		you will receive an error.`))
+
+	colorizeExample = templates.Examples(i18n.T(`
+		# Display a single pod
+		kubectl colorize-managed-fields pod sample-pod`))
 )
 
 type ColorizeManagedFieldsOptions struct {
@@ -37,9 +54,9 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:     "kubectl colorize-managed-fields",
-		Short:   "",
-		Long:    "",
-		Example: "",
+		Short:   "Display one resource with colorized fields based on managed fields",
+		Long:    colorizeLong,
+		Example: colorizeExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmdutil.CheckErr(o.Complete(f, args))
 			cmdutil.CheckErr(o.Run(f, args))
