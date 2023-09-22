@@ -53,11 +53,11 @@ func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructu
 	}
 
 	fieldColors := assignColorToFields(fieldManagers, managerColors)
-	kpe := getKeyPathElements(*allFields)
+	listPathElements := extractListPathElements(*allFields)
 
 	marker := ColorMarker{
-		fieldColors:     fieldColors,
-		keyPathElements: kpe,
+		fieldColors:      fieldColors,
+		listPathElements: listPathElements,
 	}
 	resource.SetManagedFields(nil)
 	marked, err := marker.mark(resource.Object, "")
@@ -86,7 +86,7 @@ func assignColorToFields(fieldManagers map[string][]string, managerColors map[st
 	return fieldColors
 }
 
-func getKeyPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
+func extractListPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
 	kpe := map[string][]fieldpath.PathElement{}
 	fs.Iterate(func(p fieldpath.Path) {
 		last := p[len(p)-1]
@@ -112,8 +112,8 @@ func colorJSON(j string) string {
 }
 
 type ColorMarker struct {
-	fieldColors     map[string]color
-	keyPathElements map[string][]fieldpath.PathElement
+	fieldColors      map[string]color
+	listPathElements map[string][]fieldpath.PathElement
 }
 
 func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]any, error) {
@@ -135,7 +135,7 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 				break
 			}
 
-			lk, ok := m.keyPathElements[fieldPath]
+			lpe, ok := m.listPathElements[fieldPath]
 			if !ok {
 				marked[markedKey] = typedValue
 				break
@@ -145,7 +145,7 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 			for _, v := range typedValue {
 				switch tv := v.(type) {
 				case map[string]any:
-					prefix, err := findFirst(lk, func(pe fieldpath.PathElement) bool {
+					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
 						return m.matchPathElement(pe, tv)
 					})
 					if err != nil {
@@ -158,7 +158,7 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 					}
 					markedList = append(markedList, markedChild)
 				case string:
-					prefix, err := findFirst(lk, func(pe fieldpath.PathElement) bool {
+					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
 						return tv == (*pe.Value).AsString()
 					})
 					if err != nil {
