@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
@@ -26,7 +25,6 @@ var (
 		conflicted color, regardless of the combination of managers.
 		Currently, only one resource is supported. If you specify more than two resources,
 		you will receive an error.`))
-
 	colorizeExample = templates.Examples(i18n.T(`
 		# Display a single pod
 		kubectl colorize-managed-fields pod sample-pod`))
@@ -92,35 +90,33 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 		return err
 	}
 
-	allErrs := []error{}
 	infos, err := r.Infos()
 	if err != nil {
-		allErrs = append(allErrs, err)
+		return err
 	}
 
 	if len(infos) == 0 {
 		fmt.Fprintf(o.ErrOut, "No resources found in %s namespace.\n", o.Namespace)
-		return utilerrors.NewAggregate(allErrs)
+		return nil
 	}
 
 	if len(infos) > 1 {
-		allErrs = append(allErrs, errors.New("support only one resource"))
-		return utilerrors.NewAggregate(allErrs)
+		return errors.New("support only a single resource")
 	}
 
 	resource := infos[0].Object.DeepCopyObject().(*unstructured.Unstructured)
 	marked, err := markWithColor(resource)
-	if err != nil {
-		allErrs = append(allErrs, err)
+	if err != nil || marked == nil {
+		return fmt.Errorf("failed to colorize a object: %w", err)
 	}
 
 	j, err := json.MarshalIndent(marked.Object, "", "  ")
 	if err != nil {
-		allErrs = append(allErrs, err)
+		return fmt.Errorf("failed to encode json: %w", err)
 	}
 
 	cj := colorJSON(string(j))
 	fmt.Fprintln(o.IOStreams.Out, cj)
 
-	return utilerrors.NewAggregate(allErrs)
+	return nil
 }
