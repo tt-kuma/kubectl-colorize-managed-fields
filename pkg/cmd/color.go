@@ -77,7 +77,6 @@ func assignColorToFields(fieldManagers map[string][]string, managerColors map[st
 			continue
 		}
 		if len(v) > 1 {
-
 			fieldColors[k] = conflicted
 			continue
 		}
@@ -136,31 +135,42 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 				break
 			}
 
-			if _, ok := typedValue[0].(map[string]any); !ok {
+			lk, ok := m.keyPathElements[fieldPath]
+			if !ok {
 				marked[markedKey] = typedValue
 				break
 			}
 
-			marked[markedKey] = []map[string]any{}
-			lk := m.keyPathElements[fieldPath]
-			for _, tv := range typedValue {
-				var prefix fieldpath.PathElement
-				if len(lk) != 0 {
-					var err error
-					prefix, err = findFirst(lk, func(prefix fieldpath.PathElement) bool {
-						return m.matchPathElement(prefix, tv.(map[string]any))
+			markedList := []any{}
+			for _, v := range typedValue {
+				switch tv := v.(type) {
+				case map[string]any:
+					prefix, err := findFirst(lk, func(pe fieldpath.PathElement) bool {
+						return m.matchPathElement(pe, tv)
 					})
+					if err != nil {
+						markedList = append(markedList, tv)
+						break
+					}
+					markedChild, err := m.mark(tv, fmt.Sprintf("%s%s", fieldPath, prefix.String()))
 					if err != nil {
 						return nil, err
 					}
+					markedList = append(markedList, markedChild)
+				case string:
+					prefix, err := findFirst(lk, func(pe fieldpath.PathElement) bool {
+						return tv == (*pe.Value).AsString()
+					})
+					if err != nil {
+						markedList = append(markedList, tv)
+						break
+					}
+					markedList = append(markedList, m.markValue(fmt.Sprintf("%s%s", fieldPath, prefix.String()), tv))
+				default:
+					markedList = append(markedList, tv)
 				}
-
-				markedChild, err := m.mark(tv.(map[string]any), fmt.Sprintf("%s%s", fieldPath, prefix.String()))
-				if err != nil {
-					return nil, err
-				}
-				marked[markedKey] = append(marked[markedKey].([]map[string]any), markedChild)
 			}
+			marked[markedKey] = markedList
 		default:
 			marked[markedKey] = typedValue
 		}
@@ -175,16 +185,34 @@ func (m *ColorMarker) markKey(pathPrefix, key string) string {
 	return key
 }
 
-// TODO: support other types
-func (m *ColorMarker) matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
-	for _, k := range *prefix.Key {
-		if k.Value.IsString() && value[k.Name] != k.Value.AsString() {
-			return false
-		}
-		if k.Value.IsInt() && value[k.Name] != k.Value.AsInt() {
-			return false
-		}
+func (m *ColorMarker) markValue(fieldPath, value string) string {
+	if c, ok := m.fieldColors[fieldPath]; ok {
+		return fmt.Sprintf("%s%s%d%s", value, markerPrefix, c, markerSuffix)
 	}
+	return value
+}
+
+func (m *ColorMarker) matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
+	if prefix.Key == nil {
+		return false
+	}
+
+	for _, k := range *prefix.Key {
+		if k.Value.IsString() && value[k.Name] == k.Value.AsString() {
+			continue
+		}
+		if k.Value.IsInt() && value[k.Name] == k.Value.AsInt() {
+			continue
+		}
+		if k.Value.IsFloat() && value[k.Name] != k.Value.AsFloat() {
+			continue
+		}
+		if k.Value.IsBool() && value[k.Name] != k.Value.AsBool() {
+			continue
+		}
+		return false
+	}
+
 	return true
 }
 
