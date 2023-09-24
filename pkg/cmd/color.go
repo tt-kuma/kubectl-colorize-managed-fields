@@ -87,7 +87,7 @@ func assignColorToFields(fieldManagers map[string][]string, managerColors map[st
 }
 
 func extractListPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElement {
-	kpe := map[string][]fieldpath.PathElement{}
+	listPathElements := map[string][]fieldpath.PathElement{}
 	fs.Iterate(func(p fieldpath.Path) {
 		last := p[len(p)-1]
 		if last.FieldName != nil || len(p) < 2 {
@@ -95,13 +95,13 @@ func extractListPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElemen
 		}
 
 		prefix := p[0 : len(p)-1].String()
-		if _, ok := kpe[prefix]; !ok {
-			kpe[prefix] = []fieldpath.PathElement{}
+		if _, ok := listPathElements[prefix]; !ok {
+			listPathElements[prefix] = []fieldpath.PathElement{}
 		}
-		kpe[prefix] = append(kpe[prefix], last)
+		listPathElements[prefix] = append(listPathElements[prefix], last)
 	})
 
-	return kpe
+	return listPathElements
 }
 
 func colorJSON(j string) string {
