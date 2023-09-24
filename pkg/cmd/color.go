@@ -142,11 +142,12 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 			}
 
 			markedList := []any{}
-			for _, v := range typedValue {
+			for i, v := range typedValue {
 				switch tv := v.(type) {
 				case map[string]any:
 					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
-						return m.matchPathElement(pe, tv)
+						return m.matchPathElement(pe, tv) ||
+							(pe.Index != nil && *pe.Index == i)
 					})
 					if err != nil {
 						markedList = append(markedList, tv)
@@ -159,7 +160,8 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 					markedList = append(markedList, markedChild)
 				case string:
 					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
-						return tv == (*pe.Value).AsString()
+						return (pe.Value != nil && tv == (*pe.Value).AsString()) ||
+							(pe.Index != nil && *pe.Index == i)
 					})
 					if err != nil {
 						markedList = append(markedList, tv)
@@ -192,12 +194,12 @@ func (m *ColorMarker) markValue(fieldPath, value string) string {
 	return value
 }
 
-func (m *ColorMarker) matchPathElement(prefix fieldpath.PathElement, value map[string]any) bool {
-	if prefix.Key == nil {
+func (m *ColorMarker) matchPathElement(pe fieldpath.PathElement, value map[string]any) bool {
+	if pe.Key == nil {
 		return false
 	}
 
-	for _, k := range *prefix.Key {
+	for _, k := range *pe.Key {
 		if k.Value.IsString() && value[k.Name] == k.Value.AsString() {
 			continue
 		}
