@@ -1,1 +1,1 @@
-# kubectl-color-get
+# kubectl-colorize-managed-fields
