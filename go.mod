@@ -1,4 +1,4 @@
-module github.com/tt-kuma/kubectl-color-get
+module github.com/tt-kuma/kubectl-colorize-managed-fields
 
 go 1.21
 

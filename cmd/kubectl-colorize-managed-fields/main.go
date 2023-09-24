@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/tt-kuma/kubectl-color-get/pkg/cmd"
+	"github.com/tt-kuma/kubectl-colorize-managed-fields/pkg/cmd"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
