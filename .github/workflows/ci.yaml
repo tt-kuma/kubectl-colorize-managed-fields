@@ -23,6 +23,9 @@ jobs:
         with:
           go-version-file: ./go.mod
           cache: true
+      - name: Resolve go dependency
+        if: ${{ steps.setup-go.outputs.cache-hit != 'true' }}
+        run: "go mod download"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
       - name: Run go test
