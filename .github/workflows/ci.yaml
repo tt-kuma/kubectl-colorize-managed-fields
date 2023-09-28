@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  go-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: ./go.mod
+          cache: true
+      - name: Resolve go dependency
+        if: ${{ steps.setup-go.outputs.cache-hit != 'true' }}
+        run: "go mod download"
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+      - name: Run go test
+        run: "go test ./..."
