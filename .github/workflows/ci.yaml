@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  go-ci:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,10 +23,6 @@ jobs:
         with:
           go-version-file: ./go.mod
           cache: true
-      - name: Resolve go dependency
-        run: "go mod download"
-      - name: Run go vet
-        run: "go vet ./..."
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
       - name: Run go test
