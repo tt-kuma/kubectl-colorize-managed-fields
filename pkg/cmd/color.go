@@ -23,14 +23,14 @@ const (
 	markerSuffix     = "__"
 )
 
-func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructured, map[string]color, error) {
 	fieldManagers := map[string][]string{}
 	managerColors := make(map[string]color, len(resource.GetManagedFields()))
 	allFields := &fieldpath.Set{}
 	for i, mf := range resource.GetManagedFields() {
 		fs := &fieldpath.Set{}
 		if err := fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		fs.Leaves().Iterate(func(p fieldpath.Path) {
@@ -56,12 +56,12 @@ func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructu
 
 	marked, err := marker.mark(resource.Object, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return &unstructured.Unstructured{
 		Object: marked,
-	}, nil
+	}, managerColors, nil
 }
 
 func assignColorToFields(fieldManagers map[string][]string, managerColors map[string]color) map[string]color {

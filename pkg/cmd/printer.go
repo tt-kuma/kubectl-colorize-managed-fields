@@ -23,11 +23,15 @@ var (
 	colorMarkRegexp       = regexp.MustCompile(fmt.Sprintf("(.+)%s(\\d+)%s", markerPrefix, markerSuffix))
 )
 
+func colorString(str string, color color) string {
+	return fmt.Sprintf("%s%dm%s%s", xterm256FgPrefix, color, str, reset)
+}
+
 type PrintFlags struct {
 	JSONYamlPrintFlags *genericclioptions.JSONYamlPrintFlags
 
-	ShowDescription *bool
-	OutputFormat    *string
+	NoDescription *bool
+	OutputFormat  *string
 }
 
 func (f *PrintFlags) AllowedFormats() []string {
@@ -66,18 +70,18 @@ func (f *PrintFlags) AddFlags(cmd *cobra.Command) {
 	if f.OutputFormat != nil {
 		cmd.Flags().StringVarP(f.OutputFormat, "output", "o", *f.OutputFormat, fmt.Sprintf(`Output format. One of: (%s).`, strings.Join(f.AllowedFormats(), ", ")))
 	}
-	if f.ShowDescription != nil {
-		cmd.Flags().BoolVar(f.ShowDescription, "show-color-description", *f.ShowDescription, "If true, print description for each field color")
+	if f.NoDescription != nil {
+		cmd.Flags().BoolVar(f.NoDescription, "no-color-description", *f.NoDescription, "If true, do not print description for each field color")
 	}
 }
 
 func NewPrintFlags() *PrintFlags {
 	outputFormat := "yaml"
-	ShowDescription := false
+	noDescription := false
 
 	return &PrintFlags{
-		OutputFormat:    &outputFormat,
-		ShowDescription: &ShowDescription,
+		OutputFormat:  &outputFormat,
+		NoDescription: &noDescription,
 
 		JSONYamlPrintFlags: genericclioptions.NewJSONYamlPrintFlags(),
 	}
