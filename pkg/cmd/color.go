@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"regexp"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -23,10 +22,6 @@ const (
 	reset            = escape + "[0m"
 	markerPrefix     = "__"
 	markerSuffix     = "__"
-)
-
-var (
-	colorMarkRegexp = regexp.MustCompile(fmt.Sprintf("\"(.+)%s(\\d+)%s\"", markerPrefix, markerSuffix))
 )
 
 func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
@@ -59,7 +54,7 @@ func markWithColor(resource *unstructured.Unstructured) (*unstructured.Unstructu
 		fieldColors:      fieldColors,
 		listPathElements: listPathElements,
 	}
-	resource.SetManagedFields(nil)
+
 	marked, err := marker.mark(resource.Object, "")
 	if err != nil {
 		return nil, err
@@ -102,13 +97,6 @@ func extractListPathElements(fs fieldpath.Set) map[string][]fieldpath.PathElemen
 	})
 
 	return listPathElements
-}
-
-func colorJSON(j string) string {
-	colorized := j
-	colorized = colorMarkRegexp.ReplaceAllString(colorized, fmt.Sprintf("%s${2}m\"${1}\"%s", xterm256FgPrefix, reset))
-
-	return colorized
 }
 
 type ColorMarker struct {
