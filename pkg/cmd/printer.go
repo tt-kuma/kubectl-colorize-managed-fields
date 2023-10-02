@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,14 +99,15 @@ func (p *ColorJSONPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 		return fmt.Errorf("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
 	}
 
-	data, err := json.MarshalIndent(obj, "", "    ")
-	if err != nil {
+	var b bytes.Buffer
+	encoder := json.NewEncoder(&b)
+	encoder.SetIndent("", "    ")
+	if err := encoder.Encode(obj); err != nil {
 		return err
 	}
-	data = append(data, '\n')
-	data = quotedColorMarkRegexp.ReplaceAll(data, []byte(fmt.Sprintf("%s${2}m\"${1}\"%s", xterm256FgPrefix, reset)))
+	output := quotedColorMarkRegexp.ReplaceAll(b.Bytes(), []byte(fmt.Sprintf("%s${2}m\"${1}\"%s", xterm256FgPrefix, reset)))
 
-	_, err = w.Write(data)
+	_, err := w.Write(output)
 	return err
 }
 
@@ -129,11 +131,12 @@ func (p *ColorYAMLPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 		return fmt.Errorf("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
 	}
 
-	output, err := yaml.Marshal(obj)
+	data, err := yaml.Marshal(obj)
 	if err != nil {
 		return err
 	}
-	output = colorMarkRegexp.ReplaceAll(output, []byte(fmt.Sprintf("%s${2}m${1}%s", xterm256FgPrefix, reset)))
-	_, err = fmt.Fprint(w, string(output))
+	output := colorMarkRegexp.ReplaceAll(data, []byte(fmt.Sprintf("%s${2}m${1}%s", xterm256FgPrefix, reset)))
+
+	_, err = w.Write(output)
 	return err
 }
