@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -133,11 +132,11 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 			for i, v := range typedValue {
 				switch tv := v.(type) {
 				case map[string]any:
-					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
+					prefix, ok := findFirst(lpe, func(pe fieldpath.PathElement) bool {
 						return m.matchPathElement(pe, tv) ||
 							(pe.Index != nil && *pe.Index == i)
 					})
-					if err != nil {
+					if !ok {
 						markedList = append(markedList, tv)
 						break
 					}
@@ -147,11 +146,11 @@ func (m *ColorMarker) mark(obj map[string]any, pathPrefix string) (map[string]an
 					}
 					markedList = append(markedList, markedChild)
 				case string:
-					prefix, err := findFirst(lpe, func(pe fieldpath.PathElement) bool {
+					prefix, ok := findFirst(lpe, func(pe fieldpath.PathElement) bool {
 						return (pe.Value != nil && tv == (*pe.Value).AsString()) ||
 							(pe.Index != nil && *pe.Index == i)
 					})
-					if err != nil {
+					if !ok {
 						markedList = append(markedList, tv)
 						break
 					}
@@ -206,13 +205,13 @@ func (m *ColorMarker) matchPathElement(pe fieldpath.PathElement, value map[strin
 	return true
 }
 
-func findFirst[T any](s []T, f func(T) bool) (T, error) {
+func findFirst[T any](s []T, f func(T) bool) (T, bool) {
 	for _, e := range s {
 		if f(e) {
-			return e, nil
+			return e, true
 		}
 	}
 
 	var zero T
-	return zero, errors.New("not found")
+	return zero, false
 }
