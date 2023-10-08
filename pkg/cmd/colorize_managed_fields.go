@@ -115,11 +115,11 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	}
 
 	if !*o.PrintFlags.NoDescription {
-		fmt.Fprintln(o.IOStreams.Out, "COLOR\tMANAGER")
+		fmt.Fprintln(o.IOStreams.Out, "COLOR"+"\t"+"MANAGER")
 		for k, v := range managerColors {
 			fmt.Fprintln(o.IOStreams.Out, colorString("■", v)+"\t"+k)
 		}
-		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\tmore than two managers")
+		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"more than two managers")
 		fmt.Fprintln(o.IOStreams.Out, "===")
 	}
 
