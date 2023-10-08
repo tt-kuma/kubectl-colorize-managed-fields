@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -31,15 +30,18 @@ var (
 )
 
 type ColorizeManagedFieldsOptions struct {
-	ExplicitNamespace bool
+	PrintFlags *PrintFlags
+
 	Namespace         string
+	ExplicitNamespace bool
 
 	genericiooptions.IOStreams
 }
 
 func NewColorizeManagedFieldsOptions(streams genericiooptions.IOStreams) *ColorizeManagedFieldsOptions {
 	return &ColorizeManagedFieldsOptions{
-		IOStreams: streams,
+		PrintFlags: NewPrintFlags(),
+		IOStreams:  streams,
 	}
 }
 
@@ -63,6 +65,8 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 
 	flags := cmd.Flags()
 	defaultConfigFlags.AddFlags(flags)
+	o.PrintFlags.AddFlags(cmd)
+
 	return cmd
 }
 
@@ -105,18 +109,24 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	}
 
 	resource := infos[0].Object.DeepCopyObject().(*unstructured.Unstructured)
-	marked, err := markWithColor(resource)
+	marked, managerColors, err := markWithColor(resource)
 	if err != nil || marked == nil {
 		return fmt.Errorf("failed to colorize a object: %w", err)
 	}
 
-	j, err := json.MarshalIndent(marked.Object, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to encode json: %w", err)
+	if !*o.PrintFlags.NoDescription {
+		fmt.Fprintln(o.IOStreams.Out, "COLOR"+"\t"+"MANAGER")
+		for k, v := range managerColors {
+			fmt.Fprintln(o.IOStreams.Out, colorString("■", v)+"\t"+k)
+		}
+		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"more than two managers")
+		fmt.Fprintln(o.IOStreams.Out, "===")
 	}
 
-	cj := colorJSON(string(j))
-	fmt.Fprintln(o.IOStreams.Out, cj)
+	printer, err := o.PrintFlags.ToPrinter()
+	if err != nil {
+		return err
+	}
 
-	return nil
+	return printer.PrintObj(marked, o.IOStreams.Out)
 }
