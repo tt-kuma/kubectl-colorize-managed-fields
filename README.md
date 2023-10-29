@@ -47,3 +47,7 @@ EOF
 ```
 When multiple manager exists, each manager assigned a different color. The fields managed by multiple managers are colorized by fixed color indicating a conflict.
 ![](https://github.com/tt-kuma/kubectl-colorize-managed-fields/blob/image/images/example-multiple-managers.png)
+
+## License
+
+kubectl-colorize-managed-fields is licensed under the Apache License 2.0.
