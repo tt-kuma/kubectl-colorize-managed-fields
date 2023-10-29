@@ -111,7 +111,7 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 	resource := infos[0].Object.DeepCopyObject().(*unstructured.Unstructured)
 	marked, managerColors, err := markWithColor(resource)
 	if err != nil || marked == nil {
-		return fmt.Errorf("failed to colorize a object: %w", err)
+		return fmt.Errorf("failed to colorize an object: %w", err)
 	}
 
 	if !*o.PrintFlags.NoDescription {
@@ -119,7 +119,8 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 		for k, v := range managerColors {
 			fmt.Fprintln(o.IOStreams.Out, colorString("■", v)+"\t"+k)
 		}
-		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"more than two managers")
+		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"conflicted (managed by more than two managers)")
+		fmt.Fprintln(o.IOStreams.Out, "■"+"\t"+"none (not managed)")
 		fmt.Fprintln(o.IOStreams.Out, "===")
 	}
 
