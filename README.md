@@ -1,7 +1,6 @@
 # kubectl-colorize-managed-fields
 
 A kubectl plugin to display colorized fields of the kubernetes resources based on their managed fields.
-This plugin help you to understand managed fields. 
 
 ## Installation
 
