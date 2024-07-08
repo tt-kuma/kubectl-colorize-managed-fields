@@ -27,6 +27,6 @@ jobs:
         if: ${{ steps.setup-go.outputs.cache-hit != 'true' }}
         run: "go mod download"
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
       - name: Run go test
         run: "go test ./..."
