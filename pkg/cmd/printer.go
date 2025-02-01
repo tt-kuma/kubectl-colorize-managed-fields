@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -92,11 +93,11 @@ type ColorJSONPrinter struct{}
 
 func (p *ColorJSONPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 	if printers.InternalObjectPreventer.IsForbidden(reflect.Indirect(reflect.ValueOf(obj)).Type().PkgPath()) {
-		return fmt.Errorf(printers.InternalObjectPrinterErr)
+		return errors.New(printers.InternalObjectPrinterErr)
 	}
 
 	if obj.GetObjectKind().GroupVersionKind().Empty() {
-		return fmt.Errorf("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
+		return errors.New("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
 	}
 
 	var b bytes.Buffer
@@ -117,7 +118,7 @@ type ColorYAMLPrinter struct {
 
 func (p *ColorYAMLPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 	if printers.InternalObjectPreventer.IsForbidden(reflect.Indirect(reflect.ValueOf(obj)).Type().PkgPath()) {
-		return fmt.Errorf(printers.InternalObjectPrinterErr)
+		return errors.New(printers.InternalObjectPrinterErr)
 	}
 
 	count := atomic.AddInt64(&p.printCount, 1)
@@ -128,7 +129,7 @@ func (p *ColorYAMLPrinter) PrintObj(obj runtime.Object, w io.Writer) error {
 	}
 
 	if obj.GetObjectKind().GroupVersionKind().Empty() {
-		return fmt.Errorf("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
+		return errors.New("missing apiVersion or kind; try GetObjectKind().SetGroupVersionKind() if you know the type")
 	}
 
 	data, err := yaml.Marshal(obj)
