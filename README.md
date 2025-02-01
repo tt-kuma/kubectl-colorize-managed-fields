@@ -6,7 +6,7 @@ A kubectl plugin to display colorized fields of the kubernetes resources based o
 
 ### Using go install
 ```console
-$ go install github.com/tt-kuma/kubectl-colorize-managed-fields/cmd/kubectl-colorize-managed-fields@latest
+$ go install github.com/tt-kuma/kubectl-colorize-managed-fields/cmd/kubectl-colorize_managed_fields@latest
 ```
 
 ## Usage
