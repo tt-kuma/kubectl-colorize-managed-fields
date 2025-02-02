@@ -17,15 +17,13 @@ import (
 
 var (
 	colorizeLong = templates.LongDesc(i18n.T(`
-		Display resources colorized based on managed fields.
+		Prints the specified resources with fields colorized based on managed fields
+		to help visually understand them.
 
-		kubectl colorize-managed-fields displays resources with colorized fields
-		based on managed fields.
-		This helps you visually understand managed fields.
-		Fields managed by a single manager are uniquely colorized
-		to distinguish each manager. Fields managed by multiple managers are uniformly
-		colorized with a predefined color indicating a conflict, regardless of the
-		combination of managers.`))
+		Fields managed by a single manager are uniquely colorized to distinguish
+		each manager. Fields managed by multiple managers uniformly colorized with
+		a predefined color indicating a conflict, regardless of the combination of
+		managers.`))
 	colorizeExample = templates.Examples(i18n.T(`
 		# Display a single pod
 		kubectl colorize-managed-fields pod sample-pod`))
@@ -56,7 +54,7 @@ func NewCmdColorizeManagedFields(streams genericiooptions.IOStreams) *cobra.Comm
 
 	cmd := &cobra.Command{
 		Use:     "kubectl colorize-managed-fields",
-		Short:   "Display one resource with colorized fields based on managed fields",
+		Short:   "Display resources colorized based on managed fields.",
 		Long:    colorizeLong,
 		Example: colorizeExample,
 		Run: func(cmd *cobra.Command, args []string) {
