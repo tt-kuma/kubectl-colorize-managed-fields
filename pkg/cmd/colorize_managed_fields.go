@@ -17,12 +17,13 @@ import (
 
 var (
 	colorizeLong = templates.LongDesc(i18n.T(`
-		Displays resources with fields colorized bsed on managed fields.
+		Prints the specified resources with fields colorized based on managed fields
+		to help visually understand them.
 
-		Fields managed by a single manager are uniquely colorized
-		to distinguish each manager. Fields managed by multiple managers are uniformly
-		colorized with a predefined color indicating a conflict, regardless of the
-		combination of managers.`))
+		Fields managed by a single manager are uniquely colorized to distinguish
+		each manager. Fields managed by multiple managers uniformly colorized with
+		a predefined color indicating a conflict, regardless of the combination of
+		managers.`))
 	colorizeExample = templates.Examples(i18n.T(`
 		# Display a single pod
 		kubectl colorize-managed-fields pod sample-pod`))
