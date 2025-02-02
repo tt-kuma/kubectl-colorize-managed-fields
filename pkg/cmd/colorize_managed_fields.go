@@ -17,13 +17,15 @@ import (
 
 var (
 	colorizeLong = templates.LongDesc(i18n.T(`
-		Display one resource with colorized fields based on managed fields.
+		Display resources colorized based on managed fields.
 
-		Fields managed by a single manager are colorized uniquely to distinguish each
-		manager. Fields with more than two managers are uniformly colorized by predefined
-		conflicted color, regardless of the combination of managers.
-		Currently, only one resource is supported. If you specify more than two resources,
-		you will receive an error.`))
+		kubectl colorize-managed-fields displays resources with colorized fields
+		based on managed fields.
+		This helps you visually understand managed fields.
+		Fields managed by a single manager are uniquely colorized
+		to distinguish each manager. Fields managed by multiple managers are uniformly
+		colorized with a predefined color indicating a conflict, regardless of the
+		combination of managers.`))
 	colorizeExample = templates.Examples(i18n.T(`
 		# Display a single pod
 		kubectl colorize-managed-fields pod sample-pod`))
@@ -119,8 +121,8 @@ func (o *ColorizeManagedFieldsOptions) Run(f cmdutil.Factory, args []string) err
 		for k, v := range managerColors {
 			fmt.Fprintln(o.IOStreams.Out, colorString("■", v)+"\t"+k)
 		}
-		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"conflicted (managed by more than two managers)")
-		fmt.Fprintln(o.IOStreams.Out, "■"+"\t"+"none (not managed)")
+		fmt.Fprintln(o.IOStreams.Out, colorString("■", conflicted)+"\t"+"conflicted")
+		fmt.Fprintln(o.IOStreams.Out, "■"+"\t"+"none")
 		fmt.Fprintln(o.IOStreams.Out, "===")
 	}
 
