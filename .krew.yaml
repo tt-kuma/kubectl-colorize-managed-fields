@@ -1,0 +1,41 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: colorize-managed-fields
+spec:
+  version: {{ .TagName }}
+  homepage: https://github.com/tt-kuma/kubectl-colorize-managed-fields
+  shortDescription: Display resources colorized based on managed fields.
+  description: |
+    Prints the specified resources with fields colorized based on managed fields
+    to help visually understand them.
+
+    Fields managed by a single manager are uniquely colorized to distinguish
+    each manager. Fields managed by multiple managers uniformly colorized with
+    a predefined color indicating a conflict, regardless of the combination of
+    managers.
+  platforms:
+  - bin: kubectl-colorize_managed_fields
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_linux_amd64.tar.gz" .TagName }}
+    selector:
+      matchLabels:
+        os: linux
+        arch: amd64
+  - bin: kubectl-colorize_managed_fields
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_linux-arm64.tar.gz" .TagName }}
+    selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+  - bin: kubectl-colorize_managed_fields
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_darwin_amd64.tar.gz" .TagName }}
+    selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+  - bin: kubectl-colorize_managed_fields
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_darwin-arm64.tar.gz" .TagName }}
+    selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
