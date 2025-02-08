@@ -22,7 +22,7 @@ spec:
         os: linux
         arch: amd64
   - bin: kubectl-colorize_managed_fields
-    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_linux-arm64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_linux_arm64.tar.gz" .TagName }}
     selector:
       matchLabels:
         os: linux
@@ -34,7 +34,7 @@ spec:
         os: darwin
         arch: amd64
   - bin: kubectl-colorize_managed_fields
-    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_darwin-arm64.tar.gz" .TagName }}
+    {{addURIAndSha "https://github.com/tt-kuma/kubectl-colorize-managed-fields/releases/download/{{ .TagName }}/kubectl-colorize-managed-fields_darwin_arm64.tar.gz" .TagName }}
     selector:
       matchLabels:
         os: darwin
