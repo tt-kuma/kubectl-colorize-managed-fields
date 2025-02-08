@@ -4,7 +4,14 @@ A kubectl plugin to display colorized fields of the kubernetes resources based o
 
 ## Installation
 
+### Using krew
+
+```console
+$ kubectl krew install colorize-managed-fields
+```
+
 ### Using go install
+
 ```console
 $ go install github.com/tt-kuma/kubectl-colorize-managed-fields/cmd/kubectl-colorize_managed_fields@latest
 ```
@@ -44,7 +51,7 @@ data:
   key2: value2
 EOF
 ```
-When multiple manager exists, each manager assigned a different color. The fields managed by multiple managers are colorized by fixed color indicating a conflict.
+When multiple manager exists, each manager assigned a different color. The fields managed by multiple managers are colorized by fixed color indicating conflict.
 ![](https://github.com/tt-kuma/kubectl-colorize-managed-fields/blob/image/images/example-multiple-managers.png)
 
 ## License
