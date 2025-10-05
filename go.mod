@@ -6,7 +6,7 @@ toolchain go1.24.1
 require (
 	github.com/spf13/cobra v1.8.1
 	k8s.io/apimachinery v0.33.0
-	k8s.io/cli-runtime v0.32.1
+	k8s.io/cli-runtime v0.33.0
 	k8s.io/client-go v0.33.0
 	k8s.io/kubectl v0.32.1
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0
